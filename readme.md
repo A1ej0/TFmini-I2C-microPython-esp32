@@ -1,5 +1,6 @@
 original project at: https://github.com/madewhatnow/TFmini-I2C-Python
 
+compatible with a TF mini and TF mini plus I2C
 ## Basic usage
 
 The TFmini_I2C.py file contains the necessary definitions and examples.
