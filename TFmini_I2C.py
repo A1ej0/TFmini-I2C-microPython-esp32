@@ -1,35 +1,5 @@
-"""
-
-@Author: Wolfgang Schmied
-
-# The MIT License (MIT)
-#
-# Copyright (c) 2020 Wolfgang Schmied
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-"""
-
-from smbus2 import SMBus, i2c_msg
+from machine import I2C,Pin
 import time
-
-__version__ = "0.0.1"
-
 
 class TFminiI2C:
 
@@ -44,9 +14,9 @@ class TFminiI2C:
     Sensor.read()
     """
 
-    def __init__(self, I2Cbus, address):
-        self.I2Cbus = I2Cbus
-        self.address = address
+    def __init__(self):
+        self.I2Cbus = I2C(scl=Pin(22),sda=Pin(21))
+        self.address = 16
         self.RegSetSlave = [0, 38, 1]  # 0x0026, send adddress between 0x10-0x78
         self.RegTriggerMode = [0, 39, 1]  # 0x0027, set trigger mode, default 0x00
         self.RegDefaultSet = [
@@ -75,54 +45,43 @@ class TFminiI2C:
 
         self.register = register
         self.setvalue = setvalue
-        self.AddReg = i2c_msg.write(self.address, self.register)
-        self.SetReg = i2c_msg.write(self.address, [setvalue])
-
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.AddReg, self.SetReg)
-            time.sleep(0.01)
-
+        self.I2Cbus.writeto(self.address,self.register)
+        self.I2Cbus.writeto(self.address,[setvalue])
+        
         return
 
     def readAll(self):
         """ Return the distance value in selected unit. Default: cm """
 
-        self.write = i2c_msg.write(self.address, [1, 2, 7])
-        self.read = i2c_msg.read(self.address, 7)
+        self.I2Cbus.writeto(self.address, bytearray([1, 2, 7]))
+        self.read = self.I2Cbus.readfrom(self.address, 7)
 
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.write, self.read)
-            self.data = list(self.read)
+        self.data = list(self.read)
 
-            self.TrigFlag = self.data[0]
-            self.Dist = self.data[3] << 8 | self.data[2]
-            self.Strength = self.data[5] << 8 | self.data[4]
-            self.Mode = self.data[6]
+        self.TrigFlag = self.data[0]
+        self.Dist = self.data[3] << 8 | self.data[2]
+        self.Strength = self.data[5] << 8 | self.data[4]
+        self.Mode = self.data[6]
 
         return [self.TrigFlag, self.Dist, self.Strength, self.Mode]
 
     def readDistance(self):
         """ Return the distance value in selected unit. Default: cm """
 
-        self.write = i2c_msg.write(self.address, [1, 2, 7])
-        self.read = i2c_msg.read(self.address, 7)
+        self.I2Cbus.writeto(self.address, bytearray([1, 2, 7]))
+        self.read = self.I2Cbus.readfrom(self.address, 7)
 
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.write, self.read)
-            self.data = list(self.read)
+        self.data = list(self.read)
 
-            self.Dist = self.data[3] << 8 | self.data[2]
+        self.Dist = self.data[3] << 8 | self.data[2]
 
         return self.Dist
 
     def reset(self):
         """reset sensor"""
 
-        self.reset = i2c_msg.write(self.address, [0x06])
-
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.reset)
-            time.sleep(0.05)
+        self.I2Cbus.writeto(self.address, [0x06])
+        time.sleep(0.05)
 
         return
 
@@ -161,22 +120,18 @@ class TFminiI2C:
             print("Use 0x00, 0x03 or 0x07 for short, medium or long range.")
             return
 
-        self.AddReg = i2c_msg.write(self.address, self.RegDetPattern)
-        self._setReg = i2c_msg.write(self.address, [0x01])
+        self.I2Cbus.writeto(self.address, self.RegDetPattern)
+        self.I2Cbus.writeto(self.address, [0x01])
         """deactivate automatic range switching"""
 
         print("Set range mode to fixed.")
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.AddReg, self.SetReg)
 
         print("Set range distance.")
-        self.AddReg2 = i2c_msg.write(self.address, self.RegDetRange)
-        self.SetReg2 = i2c_msg.write(self.address, [self.RangeValue])
+        self.I2Cbus.writeto(self.address, self.RegDetRange)
+        self.I2Cbus.writeto(self.address, [self.RangeValue])
         """ set fixed range """
 
-        with SMBus(self.I2Cbus) as bus:
-            bus.i2c_rdwr(self.AddReg2, self.SetReg2)
-            time.sleep(0.01)
+        time.sleep(0.01)
 
         return
 
@@ -192,20 +147,3 @@ class TFminiI2C:
         return
 
 
-"""
-Example usage:
-                  
-Sensor0 = TFminiI2C(1, 0x10)
-Sensor1 = TFminiI2C(1, 0x11)
-Sensor2 = TFminiI2C(1, 0x12)
-
-print(Sensor0.readDistance())
-print(Sensor1.readAll())
-print(Sensor2.readAll())
-
-Sensor0.setUnit(0x00) #for mm
-Sensor1.setUnit(0x01) #for cm
-
-Sensor2.setRange(0x05)
-
-"""
