@@ -1,1 +1,10 @@
+from TFmini_I2C import TFminiI2C
+import time
 
+
+Sensor0 = TFminiI2C()
+print(Sensor0.readAll())
+
+while True:
+    print(Sensor0.readDistance())
+    time.sleep(0.2)
